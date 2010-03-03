@@ -1,0 +1,20 @@
+This is the MySQL filesystem engine corrected to now work. The original code is still available on
+Google code at:
+
+http://code.google.com/p/mysql-filesystem-engine/
+
+To install the engine, simply do the following:
+
+$ sh config/bootstrap
+$ ./configure --with-mysql=/path/to/mysql/source/code
+$ make
+
+Then copy the generated .so files to your MySQL plugin directory.
+
+$ cp src/.libs/libfilesystem_engine.so* /path/to/mysql/install/lib/mysql/plugin
+
+Then, install the plugin at the MySQL command line:
+
+mysql> INSTALL PLUGIN filesystem SONAME 'libfilesystem_engine.so';
+
+Padraig O'Sullivan
