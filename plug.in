@@ -1,0 +1,4 @@
+MYSQL_STORAGE_ENGINE(filesystem,,[Filesystem based Storage Engine],
+        [Creates tables based on files], [max,max-no-ndb])
+MYSQL_PLUGIN_STATIC(filesystem,    [libfilesystem.a])
+MYSQL_PLUGIN_DYNAMIC(filesystem,   [ha_filesystem.la])
