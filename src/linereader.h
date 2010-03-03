@@ -6,6 +6,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "mysql_priv.h"
+
+#if MYSQL_VERSION_ID >= 50120
+#define byte uchar
+#endif
+
 class String;
 
 class LineReader 

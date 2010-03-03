@@ -5,13 +5,27 @@
 
 #define MYSQL_SERVER 1
 #include "mysql_priv.h"
-#include "ha_filesystem.h"
 #include <mysql/plugin.h>
+
+#include "ha_filesystem.h"
 
 #include "linereader.h"
 #include "formatinfo.h"
 
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 #include <map>
+
+#if !defined(max)
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 using namespace std;
 
@@ -27,7 +41,7 @@ handlerton *filesystem_hton= NULL;
    Hash used to track the number of open tables; variable for filesystem share
    methods
 */
-static map<string, FILESYSTEM_SHARE *> filesystem_open_tables;
+static map<const char *, FILESYSTEM_SHARE *> filesystem_open_tables;
 
 /* The mutex used to init the hash; variable for filesystem share methods */
 pthread_mutex_t filesystem_mutex;
@@ -58,10 +72,9 @@ static int filesystem_done_func(void *p)
 }
 
 
-static FILESYSTEM_SHARE *get_share(const string &table_name, 
+static FILESYSTEM_SHARE *get_share(const char *table_name, 
 				   TABLE *table)
 {
-  FILESYSTEM_SHARE *share;
   uint length;
   char *tmp_name;
 
@@ -106,7 +119,7 @@ static FILESYSTEM_SHARE *get_share(const string &table_name,
 
 error:
   pthread_mutex_destroy(&share->mutex);
-  my_free((gptr) share, MYF(0));
+  my_free(share, MYF(0));
 
   return NULL;
 }
@@ -117,13 +130,13 @@ static int free_share(FILESYSTEM_SHARE *share)
   pthread_mutex_lock(&filesystem_mutex);
   if (! --share->use_count)
   {
-    map<string, FILESYSTEM_SHARE *>::iterator it= 
+    map<const char *, FILESYSTEM_SHARE *>::iterator it= 
       filesystem_open_tables.find(share->table_name);
     filesystem_open_tables.erase(it);
     thr_lock_delete(&share->lock);
     pthread_mutex_destroy(&share->mutex);
     delete share->format_info;
-    my_free((gptr) share, MYF(0));
+    my_free(share, MYF(0));
   }
   pthread_mutex_unlock(&filesystem_mutex);
 

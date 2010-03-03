@@ -3,18 +3,26 @@
 #pragma interface			/* gcc class implementation */
 #endif
 
+#include "mysql_priv.h"
+
+#if MYSQL_VERSION_ID >= 50120
+#define byte uchar
+#endif
+
 /* forward declarations */
 class LineReader; 
 class FormatInfo;
 
-typedef struct st_filesystem_share 
+struct st_filesystem_share 
 {
   char *table_name;
   FormatInfo *format_info;
   uint table_name_length,use_count;
   pthread_mutex_t mutex;
   THR_LOCK lock;
-} FILESYSTEM_SHARE;
+};
+
+typedef struct st_filesystem_share FILESYSTEM_SHARE;
 
 
 class ha_filesystem: public handler

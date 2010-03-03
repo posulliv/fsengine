@@ -14,7 +14,7 @@ sinclude(config/ac_mysql.m4)
 MYSQL_SRC_TEST
 get_variable_value()
 {
-  fs_mysql_op=`awk "
+  pbxt_mysql_op=`awk "
   BEGIN {
     want_var=\"$1\";
     len=length(want_var);

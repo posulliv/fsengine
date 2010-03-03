@@ -85,7 +85,7 @@ LineReader::LineAt(off_t offset, String *into)
 {
   off_t begin= offset; 
   off_t end= _NextLineOffset(offset);
-  into->copy(buffer_ + begin, end - begin - 1, default_charset_info);
+  into->copy((const char *) buffer_ + begin, end - begin - 1, default_charset_info);
 }
 
 
