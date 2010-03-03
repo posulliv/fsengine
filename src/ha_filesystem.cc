@@ -41,11 +41,17 @@ handlerton *filesystem_hton= NULL;
    Hash used to track the number of open tables; variable for filesystem share
    methods
 */
-static map<const char *, FILESYSTEM_SHARE *> filesystem_open_tables;
+static HASH filesystem_open_tables;
 
 /* The mutex used to init the hash; variable for filesystem share methods */
 pthread_mutex_t filesystem_mutex;
 
+static byte* filesystem_get_key(FILESYSTEM_SHARE *share,uint *length,
+                             my_bool not_used __attribute__((unused)))
+{
+  *length=share->table_name_length;
+  return (byte*) share->table_name;
+}
 
 static int filesystem_init_func(void *p)
 {
@@ -53,6 +59,8 @@ static int filesystem_init_func(void *p)
 
   filesystem_hton= (handlerton *)p;
   VOID(pthread_mutex_init(&filesystem_mutex,MY_MUTEX_INIT_FAST));
+  (void) my_hash_init(&filesystem_open_tables,system_charset_info,32,0,0,
+                     (my_hash_get_key) filesystem_get_key,0,0);
   filesystem_hton->state=   SHOW_OPTION_YES;
   filesystem_hton->create=  filesystem_create_handler;
   filesystem_hton->flags=   HTON_CAN_RECREATE;
@@ -66,6 +74,9 @@ static int filesystem_done_func(void *p)
   int error= 0;
   DBUG_ENTER("filesystem_done_func");
 
+  if (filesystem_open_tables.records)
+    error= 1;
+  my_hash_free(&filesystem_open_tables);
   pthread_mutex_destroy(&filesystem_mutex);
 
   DBUG_RETURN(0);
@@ -75,15 +86,16 @@ static int filesystem_done_func(void *p)
 static FILESYSTEM_SHARE *get_share(const char *table_name, 
 				   TABLE *table)
 {
+  FILESYSTEM_SHARE *share= NULL;
   uint length;
   char *tmp_name;
 
   pthread_mutex_lock(&filesystem_mutex);
   length= (uint) strlen(table_name);
 
-  FILESYSTEM_SHARE *share= filesystem_open_tables[table_name];
-
-  if (! share)
+  if (!(share=(FILESYSTEM_SHARE*) my_hash_search(&filesystem_open_tables,
+                                           (byte*) table_name,
+                                           length)))
   {
     if (! (share= (FILESYSTEM_SHARE *)
           my_multi_malloc(MYF(MY_WME | MY_ZEROFILL),
@@ -108,7 +120,10 @@ static FILESYSTEM_SHARE *get_share(const char *table_name,
       return NULL;
     }
 
-    filesystem_open_tables[table_name]= share;
+    if (my_hash_insert(&filesystem_open_tables, (byte*) share))
+    {
+      goto error;
+    }
     thr_lock_init(&share->lock);
     pthread_mutex_init(&share->mutex,MY_MUTEX_INIT_FAST);
   }
@@ -130,9 +145,7 @@ static int free_share(FILESYSTEM_SHARE *share)
   pthread_mutex_lock(&filesystem_mutex);
   if (! --share->use_count)
   {
-    map<const char *, FILESYSTEM_SHARE *>::iterator it= 
-      filesystem_open_tables.find(share->table_name);
-    filesystem_open_tables.erase(it);
+    my_hash_delete(&filesystem_open_tables, (byte*) share);
     thr_lock_delete(&share->lock);
     pthread_mutex_destroy(&share->mutex);
     delete share->format_info;
